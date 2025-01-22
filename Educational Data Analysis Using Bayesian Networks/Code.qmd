@@ -1,0 +1,227 @@
+---
+title: "Evidencia 1"
+editor: visual
+format:
+   html:
+     toc: true
+     html-math-method: katex
+     embed-resources: true
+     self-contained-math: true
+     df-print: kable
+---
+
+Evidencia 1. Artículo de investigación
+
+
+```{r}
+library(bnlearn)
+library(tidyverse)
+```
+
+```{r}
+data = read.csv("df.csv", stringsAsFactors = TRUE)
+head(data)
+```
+
+EDAD = E
+
+SEXO = S
+
+PB3_4 = Cambio de escuela = C
+
+PC3_3_1 = Nivel = G
+
+PC3_3_2 = #de grado = NG
+
+PA3_5 = Razón para dar de baja = DB
+
+PA3_8_6 = Se evaluó con asistencia = A
+
+PA3_8_2 = Se evaluó con exámenes = EX
+
+PA3_8_1 = Se evaluó con proyectos = P
+
+S = Sexo E = Edad G = Grado NG = Num. Grado DB = Darse de Baja C = Cambiar de Escuela EX = Exámenes A = Asistencia P = Proyectos
+
+Data
+
+```{r}
+data_dag = data %>% select(EDAD, SEXO, PB3_4, PC3_3_1, PC3_3_2, PA3_5, PA3_8_6, PA3_8_2, PA3_8_1)
+#data_dag = na.omit(data_dag)
+head(data_dag)
+```
+
+```{r}
+colnames(data_dag) = c("E","S","C","G","NG","DB","A","EX","P")
+head(data_dag)
+```
+
+DAG 1
+
+```{r}
+dag1 = model2network("[E][S][C|E][G|S:E][NG|G][DB|S:E][A|G:NG][EX|G:NG][P|G:NG]") 
+```
+
+```{r}
+##install.packages("BiocManager")
+##BiocManager::install("Rgraphviz")
+```
+
+```{r}
+graphviz.plot(dag1, shape = "ellipse")
+```
+
+```{r}
+data_dag$E <- as.factor(data_dag$E)
+data_dag$S <- as.factor(data_dag$S)
+data_dag$C <- as.factor(data_dag$C)
+data_dag$G <- as.factor(data_dag$G)
+data_dag$NG <- as.factor(data_dag$NG)
+data_dag$DB <- as.factor(data_dag$DB)
+data_dag$A <- as.factor(data_dag$A)
+data_dag$EX <- as.factor(data_dag$EX)
+data_dag$P <- as.factor(data_dag$P)
+```
+
+```{r}
+# Nombres de las variables en el DAG
+nodes(dag1)
+
+# Nombres de las columnas en los datos
+colnames(data_dag)
+```
+
+DAG 2
+
+```{r}
+dag2 = model2network("[S][E][G|S:E][NG|G][DB|S:E][C|E][EX|NG][A|NG][P|NG]")
+
+```
+
+```{r}
+graphviz.plot(dag2, shape = "ellipse")
+```
+
+DAG 3
+
+```{r}
+dag3 = model2network("[S][E][G][DB|S:E:G][NG|DB][C|DB][EX|NG][A|NG][P|NG]")
+```
+
+```{r}
+graphviz.plot(dag3, shape = "ellipse")
+
+```
+
+Creación de las redes bayesianas
+
+```{r}
+bn_mle1 = bn.fit(dag1, data = data_dag, method = "mle")
+```
+
+```{r}
+bn_mle2 = bn.fit(dag2, data = data_dag, method = "mle")
+```
+
+```{r}
+bn_mle3 = bn.fit(dag3, data = data_dag, method = "mle")
+```
+
+Significancia de las relaciones de la DAG 1
+
+```{r}
+arc.strength(dag1, data = data_dag, criterion = "mi")
+```
+
+Significancia de las relaciones de la DAG 2
+
+```{r}
+arc.strength(dag2, data = data_dag, criterion = "mi")
+```
+
+Significancia de las relaciones de la DAG 3
+
+```{r}
+arc.strength(dag3, data = data_dag, criterion = "mi")
+```
+
+Mejor red
+
+Red 1
+
+```{r}
+score(dag1, data = data_dag, type = 'bic')
+```
+
+Red 2
+
+```{r}
+score(dag2, data = data_dag, type = 'bic')
+```
+
+Red 3
+
+```{r}
+score(dag3, data = data_dag, type = 'bic')
+```
+
+Hill-climbing
+
+```{r}
+best_dag = hc(data_dag)
+```
+
+```{r}
+modelstring(best_dag)
+```
+
+```{r}
+graphviz.plot(best_dag, shape = "ellipse")
+
+```
+
+```{r}
+bn_mle_b = bn.fit(best_dag, data = data_dag, method = 'mle')
+```
+
+Queries
+
+Query 1:
+
+```{r}
+cpquery(bn_mle_b, event = ((S == "1") & (C == "10")), evidence = TRUE, n = 10^6)
+```
+
+Query 2:
+
+```{r}
+cpquery(bn_mle_b, event = (EX == '1'), evidence = (A == '1'), n = 10^6)
+```
+
+```{r}
+cpquery(bn_mle_b, event = (P == '1'), evidence = (A == '1'), n = 10^6)
+```
+
+Query 3:
+
+```{r}
+s <- 0 
+for (i in 18:29) {
+  s <- s + cpquery(bn_mle_b, event = ((G == "3") & (NG == 2) & (E == as.character(i))), evidence = TRUE, n = 10^6)
+}
+print(s)
+
+
+```
+
+Query 4
+
+```{r}
+cpquery(bn_mle_b, event = (S == '2'), evidence = ((DB == 10) | (DB == 11)), n = 10^6)
+```
+
+```{r}
+cpquery(bn_mle_b, event = (S == '2'), evidence = (DB == 2), n = 10^6)
+```
+
+\
